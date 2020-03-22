@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <jdbc>
+        <driver>com.mysql.jdbc.Driver</driver>
+        <!-- 配置数据库地址 -->
+        <url>jdbc:mysql://127.0.0.1:3306/jooq_demo?characterEncoding=UTF-8</url>
+        <!-- 配置数据库用户名-->
+        <user>root</user>
+        <!-- 配置数据库密码-->
+        <password>123qwe</password>
+    </jdbc>
+    <generator>
+        <!-- 代码生成器 -->
+        <!--   <name>org.jooq.meta.mysql.MySQLDatabase</name>-->
+        <database>
+            <!--强制为scheme1模式下所有的含有id域生成id-->
+
+            <!--是否重写主键-->
+
+            <name>org.jooq.meta.mysql.MySQLDatabase</name>
+
+            <!--include和exclude用于控制为数据库中哪些表生成代码-->
+            <includes>.*</includes>
+            <excludes></excludes>
+
+            <!--数据库名称-->
+            <inputSchema>jooq_demo</inputSchema>
+        </database>
+
+        <generate>
+            <!--是否生成dao和pojo-->
+            <daos>true</daos>
+            <pojos>true</pojos>
+            <!-- 是否把数据库时间类型映射到java 8时间类型 -->
+            <javaTimeTypes>true</javaTimeTypes>
+            <!--<interfaces>true</interfaces>-->
+            <!--是否在生成的代码中添加spring注释，比如@Repository-->
+            <springAnnotations>false</springAnnotations>
+        </generate>
+
+        <target>
+            <!--生成代码文件的包名及放置目录-->
+            <packageName>com.gatesma.springjooq.jooq</packageName>
+            <directory>src/main/java</directory>
+        </target>
+    </generator>
+</configuration>

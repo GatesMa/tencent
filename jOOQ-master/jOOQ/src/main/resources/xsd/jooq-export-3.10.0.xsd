@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schema
+    xmlns="http://www.w3.org/2001/XMLSchema"
+    xmlns:jooq-export="http://www.jooq.org/xsd/jooq-export-3.10.0.xsd"
+    targetNamespace="http://www.jooq.org/xsd/jooq-export-3.10.0.xsd"
+    elementFormDefault="qualified">
+
+    <element name="result" type="jooq-export:Result"/>
+
+    <complexType name="Result">
+        <choice>
+            <sequence>
+                <element name="fields" type="jooq-export:Fields" minOccurs="0" maxOccurs="1"/>
+                <element name="records" type="jooq-export:Records" minOccurs="1" maxOccurs="1"/>
+            </sequence>
+            <element name="record" type="jooq-export:Record" minOccurs="0" maxOccurs="unbounded"/>
+        </choice>
+    </complexType>
+
+    <complexType name="Fields">
+        <sequence>
+            <element name="field" type="jooq-export:Field" minOccurs="0" maxOccurs="unbounded"/>
+        </sequence>
+    </complexType>
+
+    <complexType name="Field">
+        <attribute name="catalog" type="string" use="optional"/>
+        <attribute name="schema" type="string" use="optional"/>
+        <attribute name="table" type="string" use="optional"/>
+        <attribute name="name" type="string"/>
+        <attribute name="type" type="string"/>
+    </complexType>
+
+    <complexType name="Records">
+        <sequence>
+            <element name="record" type="jooq-export:Record" minOccurs="0" maxOccurs="unbounded"/>
+        </sequence>
+    </complexType>
+
+    <complexType name="Record">
+        <!--
+          It is not possible, in XSD, to enforce a choice between a well defined type and a wildcard as below.
+          If, however, a <value/> element is present, then the following behaviour can be assumed:
+
+          - If there are only value elements, then the jooq-export:Value type is parsed
+          - If there is at least one non-value element, then the wildcard is parsed
+
+        <sequence>
+            <element name="value" type="jooq-export:Value" minOccurs="0" maxOccurs="unbounded"/>
+        </sequence>
+         -->
+        <sequence>
+            <any minOccurs="0" maxOccurs="unbounded" processContents="skip"/>
+        </sequence>
+    </complexType>
+
+    <complexType name="Value">
+        <simpleContent>
+            <extension base="string">
+                <attribute name="field" type="string" use="optional"/>
+            </extension>
+        </simpleContent>
+    </complexType>
+</schema>

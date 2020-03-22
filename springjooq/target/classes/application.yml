@@ -1,0 +1,11 @@
+server:
+  port: 8081
+spring:
+  application:
+    name: spring-boot-jooq-demo
+  datasource:
+    type: com.alibaba.druid.pool.DruidDataSource
+    url: jdbc:mysql://127.0.0.1:3306/jooq_demo?characterEncoding=UTF-8
+    username: root
+    password: 123qwe
+    driver-class-name: com.mysql.jdbc.Driver
