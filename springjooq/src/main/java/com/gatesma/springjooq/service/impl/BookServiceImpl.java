@@ -1,16 +1,14 @@
 package com.gatesma.springjooq.service.impl;
 
 import com.gatesma.springjooq.jooq.tables.pojos.Book;
+import com.gatesma.springjooq.jooq.tables.records.BookRecord;
 import com.gatesma.springjooq.service.BookService;
-import org.jooq.DSLContext;
-import org.jooq.Record;
-import org.jooq.Result;
-import org.jooq.SelectConditionStep;
+import lombok.extern.slf4j.Slf4j;
+import org.jooq.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import static com.gatesma.springjooq.jooq.Tables.BOOK;
@@ -25,6 +23,7 @@ import static com.gatesma.springjooq.jooq.Tables.BOOK;
  * Description:
  */
 @Service
+@Slf4j
 public class BookServiceImpl implements BookService {
 
     @Autowired
@@ -32,17 +31,18 @@ public class BookServiceImpl implements BookService {
 
     @Override
     @Transactional
-    public void create(Book book) {
+    public Book create(Book book) {
         // This method has a "bug". It creates the same book twice. The second insert
         // should lead to a constraint violation, which should roll back the whole transaction
 
-        dsl.insertInto(BOOK)
-                .set(BOOK.ID, book.getId())
+        int execute = dsl.insertInto(BOOK)
                 .set(BOOK.AUTHOR_ID, book.getAuthorId())
                 .set(BOOK.TITLE, book.getTitle())
                 .set(BOOK.PUBLISHED_IN, book.getPublishedIn())
                 .set(BOOK.LANGUAGE_ID, book.getLanguageId())
                 .execute();
+        book.setId(execute);
+        return book;
     }
 
     @Override
@@ -59,6 +59,14 @@ public class BookServiceImpl implements BookService {
                 .from(BOOK)
                 .where(BOOK.ID.eq(id))
                 .fetchInto(Book.class);
+        return books;
+    }
+
+    @Override
+    public List<Book> delBookById(Integer id) {
+        List<Book> books = getBookById(id);
+        dsl.delete(BOOK).where(BOOK.ID.eq(id)).execute();
+
         return books;
     }
 }

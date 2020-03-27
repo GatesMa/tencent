@@ -24,10 +24,12 @@ public interface BookService {
      * fail and roll back the transaction.
      */
     @Transactional
-    void create(Book book);
+    Book create(Book book);
 
     List<Book> list();
 
     List<Book> getBookById(Integer id);
+
+    List<Book> delBookById(Integer id);
 
 }
