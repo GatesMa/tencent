@@ -1,6 +1,6 @@
+[TOC]
 
-
-# CS客户中心接口解读
+# CS客户中心接口
 
 整体认识：
 
@@ -166,7 +166,7 @@ JOOQ相关配置在`com.tencent.gdt.customerservice.config.db`下，又相应的
 
 
 
-### （4）Redis添加Id的实现
+### （4）Redis队列添加Id的实现
 
 Redis中只保存信息发生改变的账号的id，ES服务进行消费，会从DB中查，然后放到es中。
 
@@ -191,15 +191,47 @@ Redis中只保存信息发生改变的账号的id，ES服务进行消费，会�
                LOG.error("doAfterAddController throws an exception! e = ", e);
            }
            syncProducer.syncAccount(msg);
-         	// RedisUtil.sadd(setKey, JSONObject.toJSONString(msg));操作Redis
+         	// syncAccount()： RedisUtil.sadd(setKey, JSONObject.toJSONString(msg));操作Redis
        }
    ```
 
 3. `com.tencent.gdt.customerservice.aop.UpdateESAspect`进行Monitor监控，这里还没看。
 
+###（5）调试
 
+使用postman发请求，在代码中调试：`advertiser/add`接口的处理流程。（断点都是提前打好的）
 
+![image-20200329152836785](/Users/gatesma/Library/Application Support/typora-user-images/image-20200329152836785.png)
 
+1. 首先在controller方法上加断点，代码停住
+
+   ![image-20200329153137504](/Users/gatesma/Library/Application Support/typora-user-images/image-20200329153137504.png)
+
+   查看body中参数都没有问题，就是在postman中输入的参数
+
+   ![image-20200329153210081](/Users/gatesma/Library/Application Support/typora-user-images/image-20200329153210081.png)
+
+2. 接下来，继续走，代码停到了add()方法，进行一系列的`校验`，或者为一些空值赋予默认值。
+
+   ![image-20200329153510293](/Users/gatesma/Library/Application Support/typora-user-images/image-20200329153510293.png)
+
+   例如，在上面的校验等过程走完后，body参数中，介绍人和介绍部门被初始化为0
+
+   ![image-20200329154255143](/Users/gatesma/Library/Application Support/typora-user-images/image-20200329154255143.png)
+
+3. 下一个断点：调用service的`addAdvertiser`，新旧表插入
+
+   `com.tencent.gdt.customerservice.service.advertiser.AdvertiserServiceCombo`
+
+   ![image-20200329155841841](/Users/gatesma/Library/Application Support/typora-user-images/image-20200329155841841.png)
+
+4. 插入完成，controller方法结束。配置的切面起作用（`@NeedSyncAddAnnotation`）：将信息更新的账号Id放到Redis中：
+
+   ![image-20200329160021625](/Users/gatesma/Library/Application Support/typora-user-images/image-20200329160021625.png)
+
+   这里的66行就是Redis的添加操作，因为外网，连接不了。信息更改后，需要手动调用ES的服务接口更新es。
+
+   ![image-20200329160103466](/Users/gatesma/Library/Application Support/typora-user-images/image-20200329160103466.png)
 
 # ES服务
 
@@ -254,8 +286,6 @@ public void syncSubAccountToEs(List<Long> accountIdList) {
 
 3. Service逻辑
 
-
-
 `com.tencent.gdt.customerservice.es.service.AccountServiceComboImpl`
 
 ```java
@@ -284,8 +314,8 @@ public Boolean syncAccount(Long accountId, Integer accountType, Long mdmId, bool
 
 `com.tencent.gdt.customerservice.es.service.AccountServiceComboImpl`
 
-- 分布式锁：（LOCK_ACCONT + accountId）"lockAccout139857184"
-- DEFAULT_EXPIRE_TIME，锁过期时间，5s
+- redis分布式锁：（LOCK_ACCONT + accountId）"lockAccout139857184"
+- **DEFAULT_EXPIRE_TIME**，锁过期时间，5s
 
 ```java
 private Boolean pushAccountToEsWithLock(Long accountId, Long mdmId) {
