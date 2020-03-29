@@ -2,7 +2,7 @@
 
 # CS客户中心接口解读
 
-对每个包下的类的整体认识：
+整体认识：
 
 ![image-20200327225258093](/Users/gatesma/Library/Application Support/typora-user-images/image-20200327225258093.png)
 
@@ -16,17 +16,13 @@
 8. service。service层。
 9. utils。一些工具类。
 
-
-
-
-
-以一个接口为例，阅读代码如何运行，使用的示例接口：`/advertiser/add` （添加广告主账号）
+一个接口为例，查看代码如何运行，使用的示例接口：`/advertiser/add` （添加广告主账号）
 
 ### （1）Controller层
 
-swgger生成实体类和controller接口。controller相关的类在`controller`包下，生成的相关实体类在`domain/api`下。一些enum类放在`constant`下，定义了一些常量，包括一些需要用到的账号ID等。
+Swgger生成实体类和controller接口。controller相关的类在`controller`包下，生成的相关实体类在`domain/api`下。一些enum类放在`constant`下，定义了一些常量，包括一些需要用到的账号ID等。
 
-1. 接口定义（删去了跟文档相关不影响使用的代码）：
+1. 接口定义（删去了跟文档相关以及一些日志等不影响阅读的代码）：
 
 `com.tencent.gdt.customerservice.controller.api.generate.AdvertiserApi`
 
@@ -53,6 +49,7 @@ ResponseEntity<AddAccountRet> addAdvertiser(@Valid @RequestBody AddAdvertiserReq
 public ResponseEntity<AddAccountRet> addAdvertiser(@Valid @RequestBody AddAdvertiserRequest body) {
     String accept = request.getHeader("Accept");
     if (accept != null && accept.contains("application/json")) {
+      // 核心逻辑在add()中
         AddAccountRet response = add(body);
         return new ResponseEntity<AddAccountRet>(response, HttpStatus.OK);
     } else {
@@ -73,9 +70,9 @@ private AddAccountRet add(AddAdvertiserRequest body) {
     initializeIndustryIdIfNeed(body);
     // 微信子客一些字段继承直客
     setMpSubAdvertiser(body);
-  	......
+  	// ......
       
-    // 主要代码 
+    // 核心代码 
     // 新建一个账号
     ret = addAdvertiser(body, user);
 ```
@@ -87,13 +84,11 @@ private AddAccountRet add(AddAdvertiserRequest body) {
 ```java
 private AddAccountRet addAdvertiser(AddAdvertiserRequest body, User user) {
     AddAccountRet ret;
-  	// 调用service的地方，传入的user是rootUserId指定的，没有则为null
+  	// 调用service的地方，传入的user是rootUserId指定的user，没有则为null
     ret = advertiserService.addAdvertiser(body, user);
     if (RetCodeUtils.isNotOk(ret)) {
         //新建账户失败
-        ApiReturnCode code = (ret == null || ret.getCode() == null) ? ApiReturnCode.INNER_ERROR : ApiReturnCode.parseCode(ret.getCode());
-        String message = (ret == null || ret.getMessage() == null) ? ApiReturnCode.INNER_ERROR.name() : ret.getMessage();
-        throw new CustomerApiException(code, message);
+        // ......
     }
     return ret;
 }
@@ -103,7 +98,7 @@ private AddAccountRet addAdvertiser(AddAdvertiserRequest body, User user) {
 
 ### （2）Service层
 
-（跟新旧表相关的有account、advertiser、certification、operator、user）同时操作新旧表， 是因为，最初有一套旧表，很多系统都在用。 后面才有了客户中心， 客户中心设计了一套新的模型来支撑业务，大部分业务方都接入了cs，但是还有一些业务方依旧是在读老库。 所以cs现在是双读双写的。保证一致性。
+（跟新旧表相关的有account、advertiser、certification、operator、user）同时操作新旧表。最初有一套旧表，很多系统都在用。 后面才有了客户中心， 客户中心设计了一套新的模型来支撑业务，大部分业务方都接入了cs，但是还有一些业务方依旧是在读老库。 所以cs现在是双读双写的。保证一致性。
 
 `com.tencent.gdt.customerservice.service.advertiser.AdvertiserServiceCombo`
 
@@ -115,8 +110,8 @@ public AddAccountRet addAdvertiser(AddAdvertiserRequest advertiser, User user) {
     long accountId;
     AddAccountRet retCode = null;
 
-    // 获取账号ID
-    if(UserUtils.isWechatAppId(user)||UserUtils.isWechatSpid(user)||UserUtils.isWechatAppidSpid(user)){
+    // 获取账号ID  
+ if(UserUtils.isWechatAppId(user)||UserUtils.isWechatSpid(user)||UserUtils.isWechatAppidSpid(user)){
         accountId = user.getUserId();
     }else {
         accountId = idService.newAccountId();
@@ -177,7 +172,7 @@ Redis中只保存信息发生改变的账号的id，ES服务进行消费，会�
 
 1. 任何对数据库的`增删改`操作都需要把最新的数据更新到elasticsearch中，用于查询，支持高并发。所以controller接口中，与数据库相关的增删改的接口上标注`@UpdateESAnnotation`和`@NeedSyncUpdateAnnotation`这几个自定义注解。
 
-2. `com.tencent.gdt.customerservice.aop.SyncRedisAspect`是一个切面，对所有`@NeedSyncAddAnnotation`的方法执行后，执行处理逻辑。用于在一个方法执行结束后（AfterReturning），同步accountId, accountType到Redis。
+2. **定义切面**。`com.tencent.gdt.customerservice.aop.SyncRedisAspect`是一个切面，对所有`@NeedSyncAddAnnotation`的方法执行后，执行处理逻辑。用于在一个方法执行结束后（AfterReturning），同步accountId, accountType到Redis。
 
    ```java
    @AfterReturning(value = "@annotation(com.tencent.gdt.customerservice.annotation.NeedSyncAddAnnotation)",
@@ -206,25 +201,174 @@ Redis中只保存信息发生改变的账号的id，ES服务进行消费，会�
 
 
 
-
-
-
-
-
-
 # ES服务
 
+![mmexport1585387658176](/Users/gatesma/Desktop/mmexport1585387658176.jpg)
+
+###（1）手动更新es
+
+可以通过redis类似于消息队列来获取需要更新的accountId等。也可以通过访问指定接口，带上id参数，可手动更新es信息：
+
+1. contoller：`/sync/sub/account`，更新account
+
+`com.tencent.gdt.customerservice.es.controller.SyncController`
+
+```java
+// 参数格式： 123423;23432    即accountId1;accountId2
+@ResponseBody
+@RequestMapping(value = "/sync/sub/account", method = RequestMethod.POST, produces = "application/json;charset=UTF-8")
+public String syncSubAccount(@RequestParam(name = "accountIds") String accountIds) {
+  // ......
+  new Thread(new Runnable() {
+    @Override
+    public void run() {
+      // 新建线程，使用线程池对每一个ID进行同步操作
+      sycnAccountToEsProcessor.syncSubAccountToEs(accountIdList);
+    }
+  }).start();
+	// ......
+}
+```
+
+2. 将每一个账号的同步操作当作一个任务，交给线程池处理
+
+`com.tencent.gdt.customerservice.es.processor.BatchSyncAccountToEsProcessor`
+
+```java
+public void syncSubAccountToEs(List<Long> accountIdList) {
+  // ......
+  for (Long accountId : accountIdList) {
+    rateLimiter.acquire();
+		// 线程池，executorService，提交一个任务
+    executorService.submit(new Runnable() {
+      @Override
+      public void run() {
+        // 将每一个账号的同步操作当作一个任务
+        accountServiceCombo.syncAccount(accountId, null, null);
+      }
+    });
+  }
+	// ......	
+}
+```
+
+3. Service逻辑
 
 
 
+`com.tencent.gdt.customerservice.es.service.AccountServiceComboImpl`
+
+```java
+public Boolean syncAccount(Long accountId, Integer accountType, Long mdmId, boolean needSyncMq) {
+  long startTime = System.currentTimeMillis();
+  // 查询是否有accoutType
+  if (accountType == null) {
+    accountType = accountServiceNew.getAccountType(accountId);
+    if (accountType == null) {
+      accountType = accountServiceOld.getServiceAccountType(accountId);
+    }
+  }
+  // 同步到CMQ队列？？干啥的
+  if(needSyncMq) {
+    cmqService.pushToAccountQueue(accountId, accountType);
+  }
+  // 放到ES中
+  boolean success = pushAccountToEsWithLock(accountId, mdmId);
+  // 报告监控
+  MoUtils.reportEsSyncData("syncAccount", System.currentTimeMillis() - startTime, success);
+  return success;
+}
+```
+
+4. 获得分布式锁
+
+`com.tencent.gdt.customerservice.es.service.AccountServiceComboImpl`
+
+- 分布式锁：（LOCK_ACCONT + accountId）"lockAccout139857184"
+- DEFAULT_EXPIRE_TIME，锁过期时间，5s
+
+```java
+private Boolean pushAccountToEsWithLock(Long accountId, Long mdmId) {
+    try {
+      return synchronizer.synchronize(LOCK_ACCONT + accountId, DEFAULT_EXPIRE_TIME, () -> {
+        return pushAccountToEsWithMmdId(accountId, mdmId);
+      });
+    } catch (Exception e) {
+			// 日志等错误信息.....
+    }
+  }
+```
+
+分布式同步器：`com.tencent.gdt.customerservice.es.utils.DistributedSynchronizer`
+
+```java
+public <V> V synchronize(String lockName,int expireAfterMilSec,Callable<V> callable) {
+  long threadId=Thread.currentThread().getId();
+  long timestamp=System.currentTimeMillis();
+  
+  long expireTime=timestamp+expireAfterMilSec*1000L;
+  String lockValue=new StringBuilder().append(timestamp).append("_").append(threadId).toString();
+  V result=null;
+  try {
+    while(true) {
+      // 尝试加锁，获得锁之后，做更新操作
+      if(RedisUtil.putIfNotExists(lockName,lockValue, expireAfterMilSec)) {
+        result=callable.call();
+        break;
+      }
+      // 超时结束
+      if(System.currentTimeMillis()>expireTime) { 
+        break;
+      }
+    }
+    // ......
+  return result;
+}
+```
+
+5. 更新es
+
+```java
+/**
+   * 如果mdmId 为null，则会去请求mdmId的值。
+   */
+private Boolean pushAccountToEsWithMmdId(long accountId, Long mdmId) {
+  boolean success = false;
+
+  Account account = null;
+  // 这里尝试通过accountId获取account的值和mdmId
+  try {
+    account = accountServiceNew.getAccount(accountId);
+		// ......
+    //如果传入的mdmId为null，则去ckv redis中去取
+    if (mdmId == null) {
+      mdmId = getMdmId(accountId);
+    }
+    // ......
+    account.setMdmId(mdmId);
+    }
+  }
+	// 将数据转为map属性值对
+  String json = JSONObject.toJSONString(account,SerializerFeature.WriteMapNullValue);
+  Map<String, Object> dataMap = JSONObject.parseObject(json);
+  for (int index = 0; index < MAX_RETRY_TIME; index++) {
+    // 核心语句。利用esService更新elasticsearch，供查询搜索
+    UpdateResponse response = esService.upsertAccount(accountId, dataMap);
+  }
+	// ......
+  return success;
+}
+```
 
 
 
-###（5）@Scheduled定时任务
+**@Scheduled定时任务**
 
 SpringBoot启动类加`@EnableScheduling`注解，开启定时任务功能。Spring定时器(定时执行一次或定时轮询执行一段代码)，注解在方法上，用于将方法设置为调度任务。
 
 在ES服务中，定义了这样一个任务
+
+`com.tencent.gdt.customerservice.es.task.RedisSizeCheckTask`
 
 ```java
 //1分钟执行一次
@@ -235,7 +379,7 @@ public void scheduled() {
   checkSize(redisKeyConfig.getAddtionalDataListKey());
   checkSize(redisKeyConfig.getMdmIdListKey());
 }
-
+// redis队列大小检测，监控上报
 void checkSize(String redisKey) {
   long size = RedisUtil.getSetSize(redisKey);
   LOGGER.info("customer redis size = {}, redisKey = {}", size, redisKey);
@@ -250,6 +394,7 @@ void checkSize(String redisKey) {
 }
 ```
 
+###（2）Redis队列
 
 
 
@@ -260,7 +405,6 @@ void checkSize(String redisKey) {
 
 
 
-勿令妄动，静重如山。不要轻率的行动，自古以来，为男人者都要沉着冷静，举止要稳如泰山。
 
 
 
@@ -274,3 +418,4 @@ void checkSize(String redisKey) {
 
 ------------------------end------------------------
 
+勿令妄动，静重如山。不要轻率的行动，自古以来，为男人者都要沉着冷静，举止要稳如泰山。
