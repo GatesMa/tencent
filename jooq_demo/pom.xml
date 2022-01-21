@@ -18,7 +18,7 @@
         <druid.version>1.1.16</druid.version>
         <jooq.version>3.13.1</jooq.version>
         <org.springframework.version>4.3.10.RELEASE</org.springframework.version>
-        <org.h2.version>1.4.199</org.h2.version>
+        <org.h2.version>2.1.210</org.h2.version>
     </properties>
 
     <dependencies>
